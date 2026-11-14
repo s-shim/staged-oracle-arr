@@ -1,0 +1,18 @@
+nohup: ignoring input
+Launching 4 parallel Phase 2 workers (PPF_1_4, ppf_c=1.4), ABLATION noet: (a) no early termination; seeds=[11, 12, 13, 14]
+Each worker: max_wall_hours=24.0, safety cap max_dragon5_calls=200 (independent per worker)
+Logs: /mnt/d/dragon/arr/phase2_sym_ppf14_abl_noet/seed_<N>/greedy_phase2_seed<N>_ppf14_abl_noet.log
+
+  started seed=11  PID=2000
+  started seed=12  PID=2001
+  started seed=13  PID=2002
+  started seed=14  PID=2003
+
+=== ALL WORKERS FINISHED (PPF_1_4) ===
+  seed     CL_proxy  calls  confirmed  rejected            stop_reason
+    11     1472.443     16          1        15      WallBudgetReached
+    12     1478.158      8          6         2        TargetCLReached
+    13     1464.739     16          1        15      WallBudgetReached
+    14     1473.870     16          4        12      WallBudgetReached
+
+Best (PPF_1_4): seed=12  CL_proxy=1478.158  -> /mnt/d/dragon/arr/phase2_sym_ppf14_abl_noet/seed_12/hybrid_patterns/incumbent_latest.json

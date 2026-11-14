@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+# LaTeX build products (the paper source is not part of this repository)
+*.aux
+*.bbl
+*.blg
+*.out
+*.toc
+*.fls
+# Do NOT ignore *.log or *.json: the experiment logs and per-call records are part of the data release.

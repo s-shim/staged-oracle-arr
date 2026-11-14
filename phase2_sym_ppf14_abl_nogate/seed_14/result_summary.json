@@ -1,0 +1,11 @@
+{
+  "seed": 14,
+  "real_best_score": 1473.8697007159087,
+  "n_dragon5_calls": 24,
+  "n_dragon5_confirmed": 4,
+  "n_dragon5_rejected": 20,
+  "q4c_phase2": 71,
+  "elapsed_sec": 87694.73119775997,
+  "stop_reason": "WallBudgetReached",
+  "ablation": "nogate"
+}

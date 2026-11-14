@@ -1,0 +1,10 @@
+{
+  "seed": 4,
+  "real_best_score": 1489.501971035573,
+  "n_dragon5_calls": 1,
+  "n_dragon5_confirmed": 1,
+  "n_dragon5_rejected": 0,
+  "q4c_phase2": 9,
+  "elapsed_sec": 6160.3543359049945,
+  "stop_reason": "TargetCLReached"
+}

@@ -1,0 +1,11 @@
+nohup: ignoring input
+0 done, 8 to run with 4 workers @ 2026-11-03 19:04:03
+=== point 3 done 98 min  E=4.308 kinf=1.11929 PPF=1.4765 CL=1475.3   (legacy kinf=1.09924 PPF=1.5916 CL=1454.6)
+=== point 2 done 99 min  E=4.292 kinf=1.11238 PPF=1.5215 CL=1467.1   (legacy kinf=1.09986 PPF=1.5602 CL=1439.4)
+=== point 0 done 112 min  E=4.251 kinf=1.12155 PPF=1.4511 CL=1450.9   (legacy kinf=1.10414 PPF=1.5715 CL=1434.6)
+=== point 1 done 117 min  E=4.267 kinf=1.10349 PPF=1.7077 CL=1456.3   (legacy kinf=1.09814 PPF=1.4251 CL=1435.2)
+=== point 4 done 103 min  E=4.323 kinf=1.11908 PPF=1.5299 CL=1476.1   (legacy kinf=1.09830 PPF=1.5981 CL=1449.9)
+=== point 5 done 107 min  E=4.349 kinf=1.11305 PPF=1.5102 CL=1486.9   (legacy kinf=1.10183 PPF=1.4855 CL=1456.0)
+=== point 7 done 102 min  E=4.359 kinf=1.11238 PPF=1.6181 CL=1486.2   (no legacy value: new point)
+=== point 6 done 108 min  E=4.353 kinf=1.11463 PPF=1.7344 CL=1490.9   (legacy kinf=1.10393 PPF=1.5587 CL=1465.4)
+ALL DONE 2026-11-03 22:44:09
