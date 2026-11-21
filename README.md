@@ -46,6 +46,18 @@ The search is seeded; on the same DRAGON5/DLIB the first oracle call of seed 11 
 therefore time-to-target, depend on your machine: the paper used 4 physical cores, one oracle call per core (BOL-PPF abort ~20 min,
 peak-k abort ~64 min, completed run ~95 min under that load).
 
+## Phase 1 with many seeds (statistics, all feasible patterns, Pareto front)
+
+```bash
+python run_phase1_many_sym.py --seeds 1-128 --wall-hours 12 --out runs/phase1_128   # one oracle call per core
+python collect_phase1_feasible.py runs/phase1_128                                   # -> runs/phase1_128/summary/
+```
+Same algorithm and settings as the published Phase 1 (`run_phase1_parallel_ppf14_sym.py`); only the seed list, output directory and number of
+workers are free, and seeds 1-8 are the published ones. Every oracle call is saved (`seed_<N>/phase1_calls/`). `collect_phase1_feasible.py`
+writes `feasible_all.json/csv` (every oracle-certified feasible pattern with grid, k_inf_max, PPF and CL), `all_calls.csv`, `pareto.json`
+(non-dominated in CL, PPF and k_inf_max; and in CL and PPF), `stats.json` (success rate with a Wilson interval, time to the first feasible
+pattern, call and abort counts) and `phase1_pareto.png`. `--fake-oracle` runs the driver without DRAGON5 as a self-test.
+
 ## What is here
 
 | Path | Content |
