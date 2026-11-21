@@ -60,7 +60,7 @@ def _fake_oracle(pattern, call_no):
     return out
 
 
-def worker(seed, out_root, wall_hours, fake):
+def worker(seed, out_root, wall_hours, fake, phase0_path):
     sys.path.insert(0, BASE_DIR)
     work_dir = os.path.join(out_root, f"seed_{seed}")
     os.makedirs(work_dir, exist_ok=True)
@@ -70,7 +70,7 @@ def worker(seed, out_root, wall_hours, fake):
     from run_qubo_hybrid_dragon5 import run_greedy_phase1_oracle
     kw = {"oracle_fn": _fake_oracle} if fake else {}
     try:
-        rec = run_greedy_phase1_oracle(seed=seed, ppf_c=PPF_C, kinf_hi=KINF_HI, phase0_path=PHASE0_PATH,
+        rec = run_greedy_phase1_oracle(seed=seed, ppf_c=PPF_C, kinf_hi=KINF_HI, phase0_path=phase0_path,
                                        save_dir=work_dir, max_wall_hours=wall_hours,
                                        max_dragon5_calls=MAX_DRAGON5_CALLS, verbose=True, **kw)
     except Exception as e:
@@ -89,6 +89,9 @@ def main():
     ap.add_argument("--wall-hours", type=float, default=12.0,
                     help="per seed: no new oracle call starts after this (a running call is finished)")
     ap.add_argument("--out", default="runs/phase1_128")
+    ap.add_argument("--phase0", default=PHASE0_PATH,
+                    help="Phase-0 oracle points (default: the 8 published points; for the 128-point Phase 0 use "
+                         "phase0_calibration_128/phase0_points.json)")
     ap.add_argument("--allow-existing", action="store_true",
                     help="use an existing output directory; seeds that already have phase1_result.json are skipped")
     ap.add_argument("--fake-oracle", action="store_true", help="self-test without DRAGON5 (not for real runs)")
@@ -98,8 +101,17 @@ def main():
     out_root = os.path.abspath(a.out)
     if not a.fake_oracle and (not os.environ.get("DRAGON5_EXE") or not os.environ.get("DRAGON5_LIBRARY")):
         print("DRAGON5_EXE / DRAGON5_LIBRARY are not set -- run `python reproduce.py check`."); return 1
-    if not os.path.exists(PHASE0_PATH):
-        print(f"missing input: {PHASE0_PATH}"); return 1
+    phase0_path = os.path.abspath(a.phase0)
+    if not os.path.exists(phase0_path):
+        print(f"missing input: {phase0_path}"); return 1
+    sys.path.insert(0, BASE_DIR)
+    from run_qubo_hybrid_dragon5 import phase1_penalty
+    p0 = json.load(open(phase0_path))
+    feas0 = [p["index"] for p in p0 if phase1_penalty(p["E"], p["n_gad"], p["real_k_inf_max"], p["real_PPF"], PPF_C, KINF_HI) <= 0.0]
+    if feas0:
+        print(f"Phase 0 already contains feasible pattern(s) (index {feas0}); Phase 1 starts from a feasible pattern, "
+              f"so there is nothing to search. They are the feasible set -- go on to Phase 2 from them."); return 0
+    print(f"Phase-0 file: {phase0_path} ({len(p0)} points, none feasible)", flush=True)
     if os.path.exists(out_root) and os.listdir(out_root) and not a.allow_existing:
         print(f"{out_root} exists and is not empty -- choose another --out, or pass --allow-existing to continue it."); return 1
     os.makedirs(out_root, exist_ok=True)
@@ -113,7 +125,7 @@ def main():
     ctx = multiprocessing.get_context("spawn")
     procs = []
     for s in todo:
-        p = ctx.Process(target=worker, args=(s, out_root, a.wall_hours, a.fake_oracle), name=f"phase1-seed{s}")
+        p = ctx.Process(target=worker, args=(s, out_root, a.wall_hours, a.fake_oracle, phase0_path), name=f"phase1-seed{s}")
         p.start(); procs.append(p)
     print(f"  started {len(procs)} workers", flush=True)
     for p in procs:

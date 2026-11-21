@@ -58,6 +58,19 @@ writes `feasible_all.json/csv` (every oracle-certified feasible pattern with gri
 (non-dominated in CL, PPF and k_inf_max; and in CL and PPF), `stats.json` (success rate with a Wilson interval, time to the first feasible
 pattern, call and abort counts) and `phase1_pareto.png`. `--fake-oracle` runs the driver without DRAGON5 as a self-test.
 
+## Phase 0 with many points (better surrogate)
+
+```bash
+python run_phase0_many_sym.py --n 128 --out phase0_calibration_128      # 128 full oracle runs, one per core
+python run_phase1_many_sym.py --seeds 1-128 --phase0 phase0_calibration_128/phase0_points.json --out runs/phase1_128
+```
+128 brand-new patterns (the 8 published Phase-0 patterns are not used; `--with-published` keeps them as anchors and in the output) are chosen by
+farthest-point sampling over the layout (35 group choices) and E, inside the search window (E 4.25-4.36 %, N_GAD 16-18); the selection is
+written to `selected_patterns.json` before any oracle call. Each pattern gets a complete DRAGON5 run; `phase0_points.json` (same schema as
+`phase0_calibration_sym/phase0_points.json`) is rewritten after every finished point and the run is resumable. If a Phase-0 pattern is already
+feasible, `run_phase1_many_sym.py` says so and stops (that pattern is then a feasible start for Phase 2). `--select-only` shows the selection
+without any oracle call, `--fake-oracle` is a self-test.
+
 ## What is here
 
 | Path | Content |
