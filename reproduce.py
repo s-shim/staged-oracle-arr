@@ -99,7 +99,9 @@ def cmd_oracle_check(a):
     print(f"Evaluating the Phase-2 start pattern once with real DRAGON5 (no early abort; takes ~1-1.5 h on one core)...", flush=True)
     t0 = time.time()
     cfg = d5.Dragon5Config(compute_ppf=True, compute_cl=True, cache_path=None)
-    out = d5.casmo4_bwr10x10(ref["pattern"], cfg)
+    # JSON stores pattern cells as lists; the deck builder needs hashable cells (tuples)
+    pattern = [[tuple(c) for c in row] for row in ref["pattern"]]
+    out = d5.casmo4_bwr10x10(pattern, cfg)
     mins = (time.time() - t0) / 60
     rows = [("k_inf_max", out["k_inf_max"], ref["real_k_inf_max"], 2e-4),
             ("PPF (BOL)", out["PPF"], ref["real_PPF"], 5e-3),
