@@ -93,6 +93,13 @@ def main():
                       "n_aborted_ppf": (res or {}).get("n_aborted_ppf"), "n_aborted_k": (res or {}).get("n_aborted_k"),
                       "oracle_hours": (res or {}).get("oracle_sec_sum", float("nan")) / 3600.0 if res else None})
         res_pattern = ((res or {}).get("feasible") or {}).get("pattern")
+        seeds[-1]["start_index"] = (res or {}).get("start_index")
+        seeds[-1]["start_P"] = (res or {}).get("start_P")
+        if (res or {}).get("stop_reason") == "StartFeasible":      # the start point itself is feasible: no oracle call in Phase 1
+            fb = res["feasible"]
+            feas.append({"seed": seed, "call": 0, "E": fb["E"], "n_gad": fb.get("n_gad"), "k_inf_max": fb["real_k_inf_max"],
+                         "PPF": fb["real_PPF"], "CL_proxy": fb["real_CL_proxy"], "dragon_elapsed_s": None,
+                         "seed_hours_to_feasible": 0.0, "type_idx": fb["type_idx"], "pattern": fb["pattern"]})
         for cp in sorted(glob.glob(os.path.join(sd, "phase1_calls", "call_*.json"))):
             c = json.load(open(cp))
             if c.get("feasible"):
@@ -151,9 +158,9 @@ def main():
     # ---- oracle-call cost: calls (and oracle core-hours) per seed until its first feasible pattern ----
     with open(os.path.join(out, "seeds.csv"), "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["seed", "stop_reason", "n_oracle_calls", "n_aborted_ppf", "n_aborted_k", "oracle_core_hours", "elapsed_hours"])
+        w.writerow(["seed", "stop_reason", "start_index", "start_P", "n_oracle_calls", "n_aborted_ppf", "n_aborted_k", "oracle_core_hours", "elapsed_hours"])
         for s_ in seeds:
-            w.writerow([s_["seed"], s_["stop_reason"], s_.get("n_calls"), s_.get("n_aborted_ppf"), s_.get("n_aborted_k"),
+            w.writerow([s_["seed"], s_["stop_reason"], s_.get("start_index"), s_.get("start_P"), s_.get("n_calls"), s_.get("n_aborted_ppf"), s_.get("n_aborted_k"),
                         s_.get("oracle_hours"), s_.get("elapsed_h")])
     found_s = [s_ for s_ in seeds if s_["stop_reason"] == "FeasibleFound" and s_.get("n_calls") is not None]
     calls_found = [s_["n_calls"] for s_ in found_s]
@@ -173,7 +180,8 @@ def main():
         w = csv.writer(f); w.writerow(["k_calls", "n_found_within_k", "n_at_risk", "fraction", "wilson95_lo", "wilson95_hi"])
         w.writerows(cdf_rows)
 
-    n_seeds = len(seeds)
+    n_start_feas = sum(1 for s in seeds if s["stop_reason"] == "StartFeasible")
+    n_seeds = len(seeds) - n_start_feas          # seeds that had to search (a feasible start point is not a search result)
     n_found = sum(1 for s in seeds if s["stop_reason"] == "FeasibleFound")
     lo, hi = wilson(n_found, n_seeds)
     th = [s["elapsed_h"] for s in seeds if s["stop_reason"] == "FeasibleFound" and s["elapsed_h"] is not None]
@@ -183,7 +191,7 @@ def main():
     outcomes = {}
     for c in calls:
         outcomes[c["outcome"]] = outcomes.get(c["outcome"], 0) + 1
-    stats = {"n_seeds": n_seeds, "stop_reasons": reasons, "n_seeds_feasible": n_found,
+    stats = {"n_seeds": n_seeds, "n_seeds_start_already_feasible": n_start_feas, "stop_reasons": reasons, "n_seeds_feasible": n_found,
              "success_rate": n_found / n_seeds if n_seeds else None, "success_rate_wilson95": [lo, hi],
              "hours_to_first_feasible_quantiles": quantiles(th),
              "oracle_calls_to_first_feasible": {
@@ -203,6 +211,8 @@ def main():
     with open(os.path.join(out, "stats.json"), "w") as f:
         json.dump(stats, f, indent=1)
 
+    if n_start_feas:
+        print(f"{n_start_feas} seed(s) started from an already feasible Phase-0 point (0 calls); the statistics below are over the {n_seeds} seeds that searched")
     print(f"seeds: {n_seeds}   feasible found: {n_found} ({100 * n_found / max(n_seeds, 1):.1f} %, 95 % Wilson {100 * lo:.1f}-{100 * hi:.1f} %)")
     print(f"stop reasons: {reasons}")
     if calls_found:

@@ -1445,7 +1445,7 @@ def _type_idx_from_pattern(pattern):
 
 def run_greedy_phase1_oracle(seed=0, ppf_c=1.4, kinf_hi=KINF_HI, phase0_path="phase0_calibration_sym/phase0_points.json",
                              save_dir=".", max_wall_hours=12.0, max_dragon5_calls=500, max_rounds=10**8,
-                             reset_window=20, dragon5_cfg=None, verbose=True, heartbeat_sec=60, oracle_fn=None):
+                             reset_window=20, dragon5_cfg=None, verbose=True, heartbeat_sec=60, oracle_fn=None, start_index=None):
     """Phase 1 as penalty minimisation against the staged oracle (no surrogate).
 
     objective   P(x) = p_E + p_N + p_k + p_PPF (phase1_penalty); search stops at P = 0, i.e. an oracle-certified
@@ -1460,6 +1460,9 @@ def run_greedy_phase1_oracle(seed=0, ppf_c=1.4, kinf_hi=KINF_HI, phase0_path="ph
                 as the start value; CL is never used in Phase 1 comparisons.
     comparison  candidate becomes the incumbent iff its (possibly lower-bound) P is strictly smaller.
     budget      max_wall_hours: no new oracle call is started after it; a running call is not interrupted.
+    start_index if given, ONLY the Phase-0 point with this index is known to the seed (it is the start incumbent and the only
+                cache entry), so seeds that start from different Phase-0 points are fully independent.  A feasible start ends the
+                seed at once (stop_reason 'StartFeasible', 0 oracle calls, 0 h).  Default None = the published behaviour.
     Writes <save_dir>/phase1_calls/call_XXXX.json after each oracle call and <save_dir>/phase1_result.json at the end.
     """
     import os
@@ -1476,6 +1479,10 @@ def run_greedy_phase1_oracle(seed=0, ppf_c=1.4, kinf_hi=KINF_HI, phase0_path="ph
     # ---- Phase-0 patterns: oracle values, penalties, start incumbent, cache seed ----
     with open(phase0_path) as f:
         p0 = json.load(f)
+    if start_index is not None:
+        p0 = [pt for pt in p0 if pt["index"] == start_index]
+        if len(p0) != 1:
+            raise ValueError(f"start_index {start_index} not found exactly once in {phase0_path}")
     cache, table = {}, []
     for pt in p0:
         ti = tuple(_type_idx_from_pattern(pt["pattern"]))
@@ -1489,8 +1496,9 @@ def run_greedy_phase1_oracle(seed=0, ppf_c=1.4, kinf_hi=KINF_HI, phase0_path="ph
     for row in table:
         log("    %d  E=%.4f  k=%.5f  PPF=%.4f  P=%.5f" % row)
     log(f"[PHASE1] start incumbent = {cache[best_key]['source']}  P={P_best:.5f}")
-    if P_best <= 0.0:
+    if P_best <= 0.0 and start_index is None:
         raise ValueError("a Phase-0 pattern is already feasible for this ppf_c; Phase 1 is not needed")
+    start_P = P_best
 
     rng = np.random.default_rng(seed)
     c = qi.init_centroid(VAR_ALLOWED, N_TYPES)
@@ -1509,11 +1517,21 @@ def run_greedy_phase1_oracle(seed=0, ppf_c=1.4, kinf_hi=KINF_HI, phase0_path="ph
                "best_P": P_best, "best_type_idx": [int(k) for k in type_idx_best],
                "best_source": cache[tuple(type_idx_best)]["source"], "calls": calls_log,
                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")}
+        if start_index is not None:
+            rec["start_index"] = start_index; rec["start_P"] = start_P
         if result is not None:
             rec["feasible"] = {k: result[k] for k in ("type_idx", "pattern", "real_k_inf_max", "real_PPF",
                                                        "real_CL_proxy", "E")}
         with open(os.path.join(save_dir, "phase1_result.json"), "w") as f:
             json.dump(rec, f, indent=2, default=float)
+        return rec
+
+    if P_best <= 0.0:                                        # only reachable with start_index: the start is feasible
+        c0 = cache[tuple(type_idx_best)]
+        result = {"type_idx": [int(k) for k in type_idx_best], "pattern": json.loads(json.dumps(p0[0]["pattern"])),
+                  "real_k_inf_max": c0["k_inf_max"], "real_PPF": c0["PPF"], "real_CL_proxy": c0["CL_proxy"], "E": c0["E"]}
+        rec = _save_summary("StartFeasible")
+        log(f"[PHASE1] seed={seed} start point {start_index} is already feasible: nothing to search (0 calls, 0 h)")
         return rec
 
     for round_i in range(1, max_rounds + 1):

@@ -71,6 +71,16 @@ written to `selected_patterns.json` before any oracle call. Each pattern gets a 
 feasible, `run_phase1_many_sym.py` says so and stops (that pattern is then a feasible start for Phase 2). `--select-only` shows the selection
 without any oracle call, `--fake-oracle` is a self-test.
 
+### Phase 1 from every Phase-0 point
+
+```bash
+python run_phase1_many_sym.py --start-each --seeds 0-127 --phase0 phase0_calibration_128/phase0_points.json --wall-hours 24 --out runs/phase1_from128
+python collect_phase1_feasible.py runs/phase1_from128
+```
+Seed N starts from Phase-0 point N and knows only that point (it is the start incumbent and the only cache entry), so the 128 seeds are
+independent and cover 128 different starts. A Phase-0 point that is already feasible ends its seed at once (`StartFeasible`, 0 calls, 0 h) and
+is listed in `feasible_all.*`; the success statistics are computed over the seeds that had to search. `seeds.csv` has the start penalty of every seed.
+
 ## What is here
 
 | Path | Content |

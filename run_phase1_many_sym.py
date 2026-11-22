@@ -60,7 +60,7 @@ def _fake_oracle(pattern, call_no):
     return out
 
 
-def worker(seed, out_root, wall_hours, fake, phase0_path):
+def worker(seed, out_root, wall_hours, fake, phase0_path, start_each=False):
     sys.path.insert(0, BASE_DIR)
     work_dir = os.path.join(out_root, f"seed_{seed}")
     os.makedirs(work_dir, exist_ok=True)
@@ -69,6 +69,8 @@ def worker(seed, out_root, wall_hours, fake, phase0_path):
     print(f"=== phase1 worker seed={seed} PID={os.getpid()} started @ {time.strftime('%Y-%m-%d %H:%M:%S')} ===", flush=True)
     from run_qubo_hybrid_dragon5 import run_greedy_phase1_oracle
     kw = {"oracle_fn": _fake_oracle} if fake else {}
+    if start_each:
+        kw["start_index"] = seed                      # seed N starts from Phase-0 point N and knows only that point
     try:
         rec = run_greedy_phase1_oracle(seed=seed, ppf_c=PPF_C, kinf_hi=KINF_HI, phase0_path=phase0_path,
                                        save_dir=work_dir, max_wall_hours=wall_hours,
@@ -92,6 +94,9 @@ def main():
     ap.add_argument("--phase0", default=PHASE0_PATH,
                     help="Phase-0 oracle points (default: the 8 published points; for the 128-point Phase 0 use "
                          "phase0_calibration_128/phase0_points.json)")
+    ap.add_argument("--start-each", action="store_true",
+                    help="seed N starts from Phase-0 point N (index N in --phase0) and knows only that point; use with --seeds 0-127 and the"
+                         " 128-point file. A feasible start point ends its seed at once (StartFeasible, 0 calls).")
     ap.add_argument("--allow-existing", action="store_true",
                     help="use an existing output directory; seeds that already have phase1_result.json are skipped")
     ap.add_argument("--fake-oracle", action="store_true", help="self-test without DRAGON5 (not for real runs)")
@@ -108,10 +113,16 @@ def main():
     from run_qubo_hybrid_dragon5 import phase1_penalty
     p0 = json.load(open(phase0_path))
     feas0 = [p["index"] for p in p0 if phase1_penalty(p["E"], p["n_gad"], p["real_k_inf_max"], p["real_PPF"], PPF_C, KINF_HI) <= 0.0]
-    if feas0:
+    if feas0 and not a.start_each:
         print(f"Phase 0 already contains feasible pattern(s) (index {feas0}); Phase 1 starts from a feasible pattern, "
               f"so there is nothing to search. They are the feasible set -- go on to Phase 2 from them."); return 0
-    print(f"Phase-0 file: {phase0_path} ({len(p0)} points, none feasible)", flush=True)
+    print(f"Phase-0 file: {phase0_path} ({len(p0)} points, feasible: {feas0 if feas0 else 'none'}), "
+          f"{'each seed starts from its own Phase-0 point' if a.start_each else 'all seeds start from the best Phase-0 point'}", flush=True)
+    if a.start_each:
+        have = {p['index'] for p in p0}
+        missing = [s for s in seeds if s not in have]
+        if missing:
+            print(f"--start-each: seeds {missing[:10]} are not Phase-0 point indices in {phase0_path}"); return 1
     if os.path.exists(out_root) and os.listdir(out_root) and not a.allow_existing:
         print(f"{out_root} exists and is not empty -- choose another --out, or pass --allow-existing to continue it."); return 1
     os.makedirs(out_root, exist_ok=True)
@@ -125,7 +136,7 @@ def main():
     ctx = multiprocessing.get_context("spawn")
     procs = []
     for s in todo:
-        p = ctx.Process(target=worker, args=(s, out_root, a.wall_hours, a.fake_oracle, phase0_path), name=f"phase1-seed{s}")
+        p = ctx.Process(target=worker, args=(s, out_root, a.wall_hours, a.fake_oracle, phase0_path, a.start_each), name=f"phase1-seed{s}")
         p.start(); procs.append(p)
     print(f"  started {len(procs)} workers", flush=True)
     for p in procs:
