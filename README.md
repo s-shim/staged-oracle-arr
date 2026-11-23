@@ -81,6 +81,15 @@ Seed N starts from Phase-0 point N and knows only that point (it is the start in
 independent and cover 128 different starts. A Phase-0 point that is already feasible ends its seed at once (`StartFeasible`, 0 calls, 0 h) and
 is listed in `feasible_all.*`; the success statistics are computed over the seeds that had to search. `seeds.csv` has the start penalty of every seed.
 
+### Collecting a many-seed Phase 2 run
+
+```bash
+python collect_phase2_many.py runs/phase2_128 --published phase2_sym_ppf14_s8start
+```
+Writes `seeds.csv`, `calls.csv`, `feasible_all.*` (every oracle-certified feasible pattern), `pareto.json`, `calls_cdf.csv` (censoring-aware fraction of
+seeds that reached the target within k oracle calls), `stats.json` (success rate with a Wilson interval; calls, core-hours and hours to the target;
+oracle run times of complete runs and of the two early aborts) and two figures. `--published` compares the seeds shared with the published 4-core run.
+
 ## What is here
 
 | Path | Content |
