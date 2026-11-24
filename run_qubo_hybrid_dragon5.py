@@ -1445,7 +1445,8 @@ def _type_idx_from_pattern(pattern):
 
 def run_greedy_phase1_oracle(seed=0, ppf_c=1.4, kinf_hi=KINF_HI, phase0_path="phase0_calibration_sym/phase0_points.json",
                              save_dir=".", max_wall_hours=12.0, max_dragon5_calls=500, max_rounds=10**8,
-                             reset_window=20, dragon5_cfg=None, verbose=True, heartbeat_sec=60, oracle_fn=None, start_index=None):
+                             reset_window=20, dragon5_cfg=None, verbose=True, heartbeat_sec=60, oracle_fn=None, start_index=None,
+                             resume_dir=None, rng_offset=0):
     """Phase 1 as penalty minimisation against the staged oracle (no surrogate).
 
     objective   P(x) = p_E + p_N + p_k + p_PPF (phase1_penalty); search stops at P = 0, i.e. an oracle-certified
@@ -1463,9 +1464,14 @@ def run_greedy_phase1_oracle(seed=0, ppf_c=1.4, kinf_hi=KINF_HI, phase0_path="ph
     start_index if given, ONLY the Phase-0 point with this index is known to the seed (it is the start incumbent and the only
                 cache entry), so seeds that start from different Phase-0 points are fully independent.  A feasible start ends the
                 seed at once (stop_reason 'StartFeasible', 0 oracle calls, 0 h).  Default None = the published behaviour.
+    resume_dir  (default None = off) continue an earlier Phase-1 run of the same seed: every oracle call recorded in
+                <resume_dir>/phase1_calls/call_*.json is put in the evaluation cache (exact repeats are never re-evaluated, the stored P
+                is reused) and the best of them (smallest P) becomes the start incumbent.  The random stream cannot be restored, so a
+                new one is used: default_rng(seed + rng_offset).  Used by the Phase 1 -> Phase 2 pipeline for seeds whose Phase 1
+                ended at its wall budget without a feasible pattern.  New calls are numbered from 1 in <save_dir>.
     Writes <save_dir>/phase1_calls/call_XXXX.json after each oracle call and <save_dir>/phase1_result.json at the end.
     """
-    import os
+    import os, glob
     t_start = time.time()
     os.makedirs(os.path.join(save_dir, "phase1_calls"), exist_ok=True)
     if dragon5_cfg is None:
@@ -1490,8 +1496,22 @@ def run_greedy_phase1_oracle(seed=0, ppf_c=1.4, kinf_hi=KINF_HI, phase0_path="ph
         cache[ti] = {"P": P, "E": pt["E"], "n_gad": pt["n_gad"], "k_inf_max": pt["real_k_inf_max"],
                      "PPF": pt["real_PPF"], "CL_proxy": pt["real_CL_proxy"], "aborted": None, "source": f"phase0[{pt['index']}]"}
         table.append((pt["index"], pt["E"], pt["real_k_inf_max"], pt["real_PPF"], P))
+    n_resumed = 0
+    if resume_dir is not None:
+        for cp in sorted(glob.glob(os.path.join(resume_dir, "phase1_calls", "call_*.json"))):
+            with open(cp) as f:
+                r = json.load(f)
+            key = tuple(int(k) for k in r["type_idx"])
+            if key in cache:
+                continue
+            cache[key] = {"P": r["P"], "E": r["E"], "n_gad": r["n_gad"], "k_inf_max": r.get("k_inf_max"), "PPF": r.get("PPF"),
+                          "CL_proxy": r.get("CL_proxy"), "aborted": r.get("aborted"),
+                          "source": f"prev_call{r['call']}"}
+            n_resumed += 1
     best_key = min(cache, key=lambda k: cache[k]["P"])
     P_best, type_idx_best = cache[best_key]["P"], list(best_key)
+    if resume_dir is not None:
+        log(f"[PHASE1] resuming from {resume_dir}: {n_resumed} earlier oracle calls put in the cache")
     log(f"[PHASE1] seed={seed} ppf_c={ppf_c} kinf_hi={kinf_hi}  Phase-0 penalties (idx, E, k_inf_max, PPF, P):")
     for row in table:
         log("    %d  E=%.4f  k=%.5f  PPF=%.4f  P=%.5f" % row)
@@ -1500,7 +1520,7 @@ def run_greedy_phase1_oracle(seed=0, ppf_c=1.4, kinf_hi=KINF_HI, phase0_path="ph
         raise ValueError("a Phase-0 pattern is already feasible for this ppf_c; Phase 1 is not needed")
     start_P = P_best
 
-    rng = np.random.default_rng(seed)
+    rng = np.random.default_rng(seed + rng_offset)
     c = qi.init_centroid(VAR_ALLOWED, N_TYPES)
     stuck = n_calls = n_rounds_exact_ok = n_rej_exact = n_cache_hit = n_failed = 0
     calls_log = []
@@ -1519,6 +1539,8 @@ def run_greedy_phase1_oracle(seed=0, ppf_c=1.4, kinf_hi=KINF_HI, phase0_path="ph
                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")}
         if start_index is not None:
             rec["start_index"] = start_index; rec["start_P"] = start_P
+        if resume_dir is not None:
+            rec["resumed_from"] = resume_dir; rec["n_resumed_cache"] = n_resumed
         if result is not None:
             rec["feasible"] = {k: result[k] for k in ("type_idx", "pattern", "real_k_inf_max", "real_PPF",
                                                        "real_CL_proxy", "E")}
