@@ -361,7 +361,8 @@ def main():
         if med:
             ax.plot([m[0] for m in med], [m[1] for m in med], c="k", lw=2.0, label="median over seeds with a feasible pattern")
         ax.axhline(TARGET_CL, c="k", lw=0.8, ls=":")
-        ax.text(0.01, TARGET_CL, f" benchmark {TARGET_CL} d", transform=ax.get_yaxis_transform(), va="bottom", fontsize=8)
+        ax.text(0.995, TARGET_CL - 0.6, f"reference level {TARGET_CL} d", transform=ax.get_yaxis_transform(), ha="right", va="top", fontsize=8,
+                bbox=dict(boxstyle="square,pad=0.15", fc="white", ec="none", alpha=0.85), zorder=5)
         ax.plot([], [], c=BLUE, label="Phase 1 already feasible"); ax.plot([], [], c=ORANGE, label="Phase 1 continued")
         ax.set_xlabel("hours since start of this run"); ax.set_ylabel("best feasible cycle length [d]")
         ax.set_title(f"Phase 2 from every Phase-1 result ({n} seeds)"); ax.legend(frameon=False, fontsize=8, loc="lower right")
@@ -377,7 +378,7 @@ def main():
             if g == "all":
                 ax.fill_between([r["hours"] for r in rr], [r["wilson95_lo"] for r in rr], [r["wilson95_hi"] for r in rr], step="post", alpha=0.15, color="k")
         ax.set_xlabel("hours since start of this run"); ax.set_ylabel(f"fraction of seeds with CL >= {TARGET_CL} d")
-        ax.set_ylim(0, 1.02); ax.set_title("Time to the benchmark cycle length"); ax.legend(frameon=False, fontsize=8, loc="upper left")
+        ax.set_ylim(0, 1.02); ax.set_title("Time to the reference cycle length"); ax.legend(frameon=False, fontsize=8, loc="upper left")
         fig.tight_layout(); fig.savefig(os.path.join(out, "pipeline_target_cdf.png")); plt.close(fig)
 
         if distinct:
